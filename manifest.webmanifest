@@ -1,0 +1,15 @@
+{
+  "name": "무역 뉴스 퀴즈",
+  "short_name": "무역퀴즈",
+  "description": "산업별 무역 뉴스를 읽고 퀴즈 3문제로 확인하는 학습 사이트",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ececec",
+  "theme_color": "#ececec",
+  "lang": "ko",
+  "icons": [
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

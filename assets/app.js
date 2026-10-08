@@ -91,12 +91,40 @@
   // ---------- 홈 ----------
   const GOAL_RATE = 80;
 
-  // 상단 숫자 카드와 목표 막대 (홈·내 기록 공통)
+  function wrongCount() {
+    let n = 0;
+    for (const a of articles) {
+      const r = store.results[a.id];
+      if (r) n += a.quiz.filter((q, k) => r.answers[k] !== q.answer_index).length;
+    }
+    return n;
+  }
+
+  // 상단 바로가기 카드 3개. 점 색: 초록=할 일 있음/완료, 노랑=남은 퀴즈, 검정=복습
+  function tiles() {
+    const latest = articles[0]?.date;
+    const latestCount = articles.filter((a) => a.date === latest).length;
+    const todo = articles.filter((a) => !store.results[a.id]).length;
+    const wrong = wrongCount();
+    const tile = (label, value, dot, onclick) => h("button", { class: "tile", onclick },
+      h("span", { class: `tile-dot ${dot}`, "aria-hidden": "true" }),
+      h("span", { class: "tile-label" }, label),
+      h("b", { class: "tile-value" }, value),
+    );
+    return h("div", { class: "tiles" },
+      tile("최신 기사", `${latestCount}개`, "green", () => { ui.industry = "all"; ui.status = "all"; viewHome(); }),
+      tile("안 푼 퀴즈", `${todo}개`, todo ? "yellow" : "green", () => { ui.industry = "all"; ui.status = "todo"; viewHome(); }),
+      tile("오답 노트", `${wrong}문제`, "black", () => { location.hash = "#/me"; }),
+    );
+  }
+
+  // 숫자 카드와 목표 막대 (홈·내 기록 공통)
   function summaryCards() {
     const s = stats();
     const stat = (value, unit, caption) => h("div", { class: "stat" },
       h("b", {}, value, h("small", {}, unit)), h("span", {}, caption));
     const rate = s.rate ?? 0;
+    const reached = s.rate != null && s.rate >= GOAL_RATE;
     return [
       h("div", { class: "panel stat-row" },
         stat(s.solved, "개", "푼 기사"),
@@ -105,13 +133,16 @@
       ),
       h("div", { class: "goal-row" },
         h("div", { class: "panel goal-bar" },
-          h("div", { class: "track", role: "img", "aria-label": `정답률 ${rate}%, 목표 ${GOAL_RATE}%` },
-            h("i", { style: `width:${Math.max(rate, 0)}%` }),
-            h("span", { class: "track-label" }, s.rate == null ? "아직 기록 없음" : `${rate}%`),
-            h("span", { class: "track-goal", style: `left:${GOAL_RATE}%` }),
+          h("div", { class: `track${reached ? " reached" : ""}`, role: "img", "aria-label": `정답률 ${rate}%, 목표 ${GOAL_RATE}%` },
+            h("i", { style: `width:${rate}%` }),
+            h("span", { class: "track-label" },
+              s.rate == null ? "첫 퀴즈를 풀어 보세요" : h("span", {}, rate, h("small", {}, "%"))),
+            h("span", { class: "track-knob", style: `left:${rate}%`, "aria-hidden": "true" }, "✳"),
           ),
         ),
-        h("div", { class: "panel goal-target" }, h("span", {}, "목표 정답률"), h("b", {}, `${GOAL_RATE}%`)),
+        h("div", { class: "panel goal-target" },
+          h("span", {}, "목표 정답률"),
+          h("b", {}, `${GOAL_RATE}%`)),
       ),
     ];
   }
@@ -142,7 +173,7 @@
       : h("p", { class: "panel empty" }, ui.status === "todo" ? "이 분류의 기사는 모두 풀었어요." : "기사가 없습니다.");
 
     render(
-      h("h1", { class: "page-title" }, "오늘의 무역 뉴스"),
+      tiles(),
       ...summaryCards(),
       h("div", { class: "filters" }, industryChips, statusChips),
       rows,
@@ -154,16 +185,19 @@
       label, count != null ? h("small", {}, count) : null);
   }
 
+  // 목록 한 줄: 제목·출처 / 상태 배지(노랑=풀기 전, 초록=완료) / 점수
   function row(a) {
     const r = store.results[a.id];
+    const total = a.quiz.length;
     return h("a", { class: "row", href: `#/a/${encodeURIComponent(a.id)}` },
       h("div", { class: "row-main" },
         h("p", { class: "row-title" }, a.title),
-        h("p", { class: "row-sub" }, `${a.source} · ${a.date}`),
+        h("p", { class: "row-sub" }, `${industryLabel(a.industry)} · ${a.source} · ${a.date.slice(5).replace("-", ".")}`),
       ),
-      h("span", { class: `pill pill-${a.industry in INDUSTRIES ? a.industry : "general"}` }, industryLabel(a.industry)),
-      r ? h("span", { class: "row-score done" }, h("span", { class: "dot", "aria-hidden": "true" }), `${r.correct}/${a.quiz.length}`)
-        : h("span", { class: "row-score" }, `${a.quiz.length}문제`),
+      r ? h("span", { class: "pill green" }, r.correct === total ? "만점" : "완료")
+        : h("span", { class: "pill yellow" }, "풀기 전"),
+      h("span", { class: "row-score" },
+        r ? r.correct : "–", h("small", {}, `/${total}`)),
     );
   }
 
@@ -180,7 +214,7 @@
 
     const articleEl = h("article", { class: "article" },
       h("div", { class: "meta" },
-        h("span", { class: `pill pill-${a.industry in INDUSTRIES ? a.industry : "general"}` }, industryLabel(a.industry)),
+        h("span", { class: "pill" }, industryLabel(a.industry)),
         h("span", {}, a.date),
         h("span", {}, a.source),
         a.countries && a.countries.length ? h("span", {}, a.countries.join(" · ")) : null,
@@ -329,7 +363,7 @@
       h("h2", {}, `오답 노트 (${wrong.length})`),
       wrong.length ? wrong.map(({ a, q, mine }) => h("div", {},
         h("p", { class: "meta" },
-          h("span", { class: `pill pill-${a.industry in INDUSTRIES ? a.industry : "general"}` }, industryLabel(a.industry)),
+          h("span", { class: "pill" }, industryLabel(a.industry)),
           h("a", { href: `#/a/${encodeURIComponent(a.id)}` }, a.title)),
         reviewItem(q, mine),
       )) : h("p", { class: "meta" }, "틀린 문제가 없어요."),
