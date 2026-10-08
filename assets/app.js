@@ -89,14 +89,36 @@
   }
 
   // ---------- 홈 ----------
+  const GOAL_RATE = 80;
+
+  // 상단 숫자 카드와 목표 막대 (홈·내 기록 공통)
+  function summaryCards() {
+    const s = stats();
+    const stat = (value, unit, caption) => h("div", { class: "stat" },
+      h("b", {}, value, h("small", {}, unit)), h("span", {}, caption));
+    const rate = s.rate ?? 0;
+    return [
+      h("div", { class: "panel stat-row" },
+        stat(s.solved, "개", "푼 기사"),
+        stat(s.rate == null ? "-" : s.rate, s.rate == null ? "" : "%", "정답률"),
+        stat(s.streak, "일", "연속 학습"),
+      ),
+      h("div", { class: "goal-row" },
+        h("div", { class: "panel goal-bar" },
+          h("div", { class: "track", role: "img", "aria-label": `정답률 ${rate}%, 목표 ${GOAL_RATE}%` },
+            h("i", { style: `width:${Math.max(rate, 0)}%` }),
+            h("span", { class: "track-label" }, s.rate == null ? "아직 기록 없음" : `${rate}%`),
+            h("span", { class: "track-goal", style: `left:${GOAL_RATE}%` }),
+          ),
+        ),
+        h("div", { class: "panel goal-target" }, h("span", {}, "목표 정답률"), h("b", {}, `${GOAL_RATE}%`)),
+      ),
+    ];
+  }
+
+  // ---------- 홈 ----------
   function viewHome() {
     setNav("home");
-    const s = stats();
-    const statBox = h("div", { class: "stats" },
-      h("div", { class: "stat" }, h("b", {}, s.solved), h("span", {}, "푼 기사")),
-      h("div", { class: "stat" }, h("b", {}, s.rate == null ? "-" : `${s.rate}%`), h("span", {}, "정답률")),
-      h("div", { class: "stat" }, h("b", {}, `${s.streak}일`), h("span", {}, "연속 학습")),
-    );
 
     const counts = {};
     articles.forEach((a) => { counts[a.industry] = (counts[a.industry] || 0) + 1; });
@@ -115,11 +137,16 @@
       (ui.industry === "all" || a.industry === ui.industry) &&
       (ui.status === "all" || (ui.status === "done") === Boolean(store.results[a.id])));
 
-    const cards = list.length
-      ? h("ul", { class: "card-list" }, list.map((a) => h("li", {}, card(a))))
-      : h("p", { class: "empty" }, ui.status === "todo" ? "이 분류의 기사는 모두 풀었어요." : "기사가 없습니다.");
+    const rows = list.length
+      ? h("ul", { class: "panel row-list" }, list.map((a) => h("li", {}, row(a))))
+      : h("p", { class: "panel empty" }, ui.status === "todo" ? "이 분류의 기사는 모두 풀었어요." : "기사가 없습니다.");
 
-    render(statBox, industryChips, statusChips, cards);
+    render(
+      h("h1", { class: "page-title" }, "오늘의 무역 뉴스"),
+      ...summaryCards(),
+      h("div", { class: "filters" }, industryChips, statusChips),
+      rows,
+    );
   }
 
   function chip(label, count, pressed, onclick) {
@@ -127,18 +154,16 @@
       label, count != null ? h("small", {}, count) : null);
   }
 
-  function card(a) {
+  function row(a) {
     const r = store.results[a.id];
-    return h("a", { class: "card", href: `#/a/${encodeURIComponent(a.id)}` },
-      h("div", { class: "meta" },
-        h("span", { class: "badge" }, industryLabel(a.industry)),
-        h("span", {}, a.date),
-        h("span", {}, a.source),
-        r ? h("span", { class: "status done" }, `✓ ${r.correct}/${a.quiz.length}`)
-          : h("span", { class: "status" }, `퀴즈 ${a.quiz.length}문제`),
+    return h("a", { class: "row", href: `#/a/${encodeURIComponent(a.id)}` },
+      h("div", { class: "row-main" },
+        h("p", { class: "row-title" }, a.title),
+        h("p", { class: "row-sub" }, `${a.source} · ${a.date}`),
       ),
-      h("h2", {}, a.title),
-      h("p", {}, a.lead),
+      h("span", { class: `pill pill-${a.industry in INDUSTRIES ? a.industry : "general"}` }, industryLabel(a.industry)),
+      r ? h("span", { class: "row-score done" }, h("span", { class: "dot", "aria-hidden": "true" }), `${r.correct}/${a.quiz.length}`)
+        : h("span", { class: "row-score" }, `${a.quiz.length}문제`),
     );
   }
 
@@ -155,7 +180,7 @@
 
     const articleEl = h("article", { class: "article" },
       h("div", { class: "meta" },
-        h("span", { class: "badge" }, industryLabel(a.industry)),
+        h("span", { class: `pill pill-${a.industry in INDUSTRIES ? a.industry : "general"}` }, industryLabel(a.industry)),
         h("span", {}, a.date),
         h("span", {}, a.source),
         a.countries && a.countries.length ? h("span", {}, a.countries.join(" · ")) : null,
@@ -276,7 +301,6 @@
   // ---------- 내 기록 ----------
   function viewMe() {
     setNav("me");
-    const s = stats();
     const byIndustry = {};
     const wrong = [];
     for (const a of articles) {
@@ -287,12 +311,6 @@
       row.total += r.answers.length;
       a.quiz.forEach((q, k) => { if (r.answers[k] !== q.answer_index) wrong.push({ a, q, mine: r.answers[k] }); });
     }
-
-    const summary = h("div", { class: "stats" },
-      h("div", { class: "stat" }, h("b", {}, s.solved), h("span", {}, "푼 기사")),
-      h("div", { class: "stat" }, h("b", {}, s.rate == null ? "-" : `${s.rate}%`), h("span", {}, "정답률")),
-      h("div", { class: "stat" }, h("b", {}, `${s.streak}일`), h("span", {}, "연속 학습")),
-    );
 
     const rows = Object.entries(INDUSTRIES).filter(([key]) => byIndustry[key]);
     const industryPanel = h("div", { class: "panel" },
@@ -311,7 +329,7 @@
       h("h2", {}, `오답 노트 (${wrong.length})`),
       wrong.length ? wrong.map(({ a, q, mine }) => h("div", {},
         h("p", { class: "meta" },
-          h("span", { class: "badge" }, industryLabel(a.industry)),
+          h("span", { class: `pill pill-${a.industry in INDUSTRIES ? a.industry : "general"}` }, industryLabel(a.industry)),
           h("a", { href: `#/a/${encodeURIComponent(a.id)}` }, a.title)),
         reviewItem(q, mine),
       )) : h("p", { class: "meta" }, "틀린 문제가 없어요."),
@@ -324,7 +342,7 @@
       viewMe();
     } }, "기록 초기화");
 
-    render(summary, industryPanel, wrongPanel, h("p", { class: "meta" }, "기록은 이 브라우저에만 저장됩니다. ", reset));
+    render(h("h1", { class: "page-title" }, "내 기록"), ...summaryCards(), industryPanel, wrongPanel, h("p", { class: "meta" }, "기록은 이 브라우저에만 저장됩니다. ", reset));
   }
 
   // ---------- 라우팅 ----------
