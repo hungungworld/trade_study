@@ -1,6 +1,6 @@
 /* 색: 노랑 = 아직 안 한 것·진행 중, 초록 = 완료·정답 */
 :root {
-  --page: #000000;
+  --page: #070a14;
   --board: rgba(236, 236, 236, 0.94);
   --surface: #ffffff;
   --text: #1a1a1a;
@@ -26,7 +26,7 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --page: #000000;
+    --page: #070a14;
     --board: rgba(22, 22, 22, 0.9);
     --surface: #222222;
     --text: #ececec;
@@ -50,7 +50,7 @@
   }
 }
 :root[data-theme="dark"] {
-  --page: #000000;
+  --page: #070a14;
   --board: rgba(22, 22, 22, 0.9);
   --surface: #222222;
   --text: #ececec;
@@ -90,12 +90,14 @@ a { color: inherit; }
 button { font: inherit; cursor: pointer; color: inherit; }
 p { margin: 0; }
 
-/* 배경 캔버스 */
+/* 배경 캔버스 (반딧불이) */
 #flow {
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
+  /* 밤하늘: 위쪽이 살짝 밝은 짙은 남색 (고정 요소에 둬야 iOS 에서도 스크롤 시 그대로 있다) */
+  background: radial-gradient(120% 80% at 50% 0%, #141c38 0%, #090d1c 55%, #04060d 100%);
 }
 
 /* 화면 전체를 감싸는 둥근 보드 */
@@ -215,6 +217,9 @@ p { margin: 0; }
 }
 .chip[aria-pressed="true"] { background: var(--primary); color: var(--on-primary); }
 .chip small { opacity: 0.6; margin-left: 4px; }
+.chip-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+.chip-dot.yellow { background: var(--yellow-strong); }
+.chip-dot.green { background: var(--green-strong); }
 
 /* 기사 목록 */
 .row-list { list-style: none; padding: 2px 18px; }
