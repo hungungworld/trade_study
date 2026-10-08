@@ -161,8 +161,9 @@
         .map(([key, label]) => chip(label, counts[key], ui.industry === key, () => { ui.industry = key; viewHome(); })),
     );
     const statusChips = h("div", { class: "chips", role: "group", "aria-label": "상태" },
-      [["all", "모든 상태"], ["todo", "안 푼 기사"], ["done", "푼 기사"]].map(([key, label]) =>
-        chip(label, null, ui.status === key, () => { ui.status = key; viewHome(); })),
+      // 목록 배지(노랑 '풀기 전', 초록 '완료')와 같은 이름·색을 쓴다.
+      [["all", "모두", null], ["todo", "풀기 전", "yellow"], ["done", "완료", "green"]].map(([key, label, dot]) =>
+        chip(label, null, ui.status === key, () => { ui.status = key; viewHome(); }, dot)),
     );
 
     const list = articles.filter((a) =>
@@ -171,7 +172,7 @@
 
     const rows = list.length
       ? h("ul", { class: "panel row-list" }, list.map((a) => h("li", {}, row(a))))
-      : h("p", { class: "panel empty" }, ui.status === "todo" ? "이 분류의 기사는 모두 풀었어요." : "기사가 없습니다.");
+      : h("p", { class: "panel empty" }, ui.status === "todo" ? "이 분야의 퀴즈는 다 풀었어요!" : "기사가 없습니다.");
 
     render(
       tiles(),
@@ -181,8 +182,9 @@
     );
   }
 
-  function chip(label, count, pressed, onclick) {
+  function chip(label, count, pressed, onclick, dot) {
     return h("button", { class: "chip", "aria-pressed": String(pressed), onclick },
+      dot ? h("span", { class: `chip-dot ${dot}`, "aria-hidden": "true" }) : null,
       label, count != null ? h("small", {}, count) : null);
   }
 
