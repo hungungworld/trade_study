@@ -1,0 +1,4 @@
+# 사이트에 필요 없는 파일은 Vercel 배포에서 뺀다
+scripts/
+.github/
+README.md

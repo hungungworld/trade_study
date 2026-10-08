@@ -1,0 +1,14 @@
+{
+  "name": "trade-study-scripts",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "update": "node update-news.mjs"
+  },
+  "dependencies": {
+    "@mozilla/readability": "^0.6.0",
+    "jsdom": "^26.1.0",
+    "rss-parser": "^3.13.0"
+  }
+}
