@@ -135,6 +135,9 @@ p { margin: 0; }
   color: rgba(255, 255, 255, 0.55);
   font-size: 0.72rem;
 }
+.site-footer p + p { margin-top: 4px; }
+#update-info { color: rgba(255, 255, 255, 0.75); }
+#update-info:empty { display: none; }
 
 .page-title { font-size: 0.9rem; font-weight: 500; margin: 0 0 12px; color: var(--muted); }
 

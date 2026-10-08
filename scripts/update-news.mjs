@@ -23,6 +23,8 @@ const ROOT = join(SCRIPTS_DIR, "..");
 const ARTICLES_PATH = join(ROOT, "data", "articles.json");
 const EDITORIALS_PATH = join(ROOT, "data", "editorials.json");
 const SEEN_PATH = join(ROOT, "data", "seen.json");
+// 사이트 하단에 보여 줄 마지막 업데이트 시각
+const META_PATH = join(ROOT, "data", "meta.json");
 const FEEDS_PATH = join(SCRIPTS_DIR, "feeds.json");
 
 // Gemini 의 OpenAI 호환 엔드포인트
@@ -606,6 +608,7 @@ async function processKind(kind, feeds, seen, state) {
       .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
       .slice(0, kind.maxKeep);
     await saveJson(kind.path, merged);
+    state.added += added.length;
   }
   log(`[${kind.name}] 새로 ${added.length}개 추가, AI 호출 ${calls}회`);
   return keepGoing;
@@ -620,11 +623,13 @@ async function main() {
 
   const feeds = await loadJson(FEEDS_PATH, {});
   const seen = await loadJson(SEEN_PATH, []);
-  const state = { calls: 0, consecutiveErrors: 0 };
+  const state = { calls: 0, consecutiveErrors: 0, added: 0 };
   for (const kind of KINDS) {
     if (!(await processKind(kind, feeds, seen, state))) break;
   }
   await saveJson(SEEN_PATH, seen.slice(-MAX_SEEN));
+  // 새 글이 있을 때만 시각을 바꾼다. 매번 바꾸면 새 글이 없어도 커밋과 재배포가 생긴다.
+  if (state.added) await saveJson(META_PATH, { updated_at: new Date().toISOString() });
 }
 
 await main();
