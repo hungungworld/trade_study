@@ -16,16 +16,17 @@
   const app = document.getElementById("app");
 
   let articles = [];
-  const ui = { industry: "all", status: "all" };
+  let editorials = [];
+  const ui = { industry: "all", status: "all", paper: "all" };
 
   // ---------- 저장소 (브라우저 localStorage) ----------
   function loadStore() {
     try {
       const raw = localStorage.getItem(STORE_KEY);
       const data = raw ? JSON.parse(raw) : null;
-      if (data && typeof data.results === "object") return data;
+      if (data && typeof data.results === "object") return { read: {}, ...data };
     } catch (e) { /* 비공개 창 등에서는 기록 없이 동작 */ }
-    return { results: {} };
+    return { results: {}, read: {} };
   }
   function saveStore(store) {
     try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) { /* 무시 */ }
@@ -371,7 +372,7 @@
 
     const reset = h("button", { class: "link-btn", onclick: () => {
       if (!confirm("모든 풀이 기록을 지울까요?")) return;
-      store = { results: {} };
+      store = { results: {}, read: {} };
       saveStore(store);
       viewMe();
     } }, "기록 초기화");
@@ -379,19 +380,134 @@
     render(h("h1", { class: "page-title" }, "내 기록"), ...summaryCards(), industryPanel, wrongPanel, h("p", { class: "meta" }, "기록은 이 브라우저에만 저장됩니다. ", reset));
   }
 
+  // ---------- 사설 ----------
+  const TOPICS = {
+    trade: "무역·통상",
+    economy: "경제·금융",
+    industry: "산업·기업",
+    politics: "정치",
+    society: "사회",
+    international: "국제",
+    other: "기타",
+  };
+  const topicLabel = (key) => TOPICS[key] || TOPICS.other;
+
+  function viewEditorials() {
+    setNav("editorials");
+    const papers = [...new Set(editorials.map((e) => e.source))];
+    const unread = editorials.filter((e) => !store.read[e.id]).length;
+    const list = editorials.filter((e) => ui.paper === "all" || e.source === ui.paper);
+
+    const head = h("div", { class: "panel stat-row" },
+      h("div", { class: "stat" }, h("b", {}, editorials.length, h("small", {}, "편")), h("span", {}, "모은 사설")),
+      h("div", { class: "stat" }, h("b", {}, unread, h("small", {}, "편")), h("span", {}, "안 읽은 사설")),
+      h("div", { class: "stat" }, h("b", {}, papers.length, h("small", {}, "곳")), h("span", {}, "신문사")),
+    );
+    const chips = h("div", { class: "filters" }, h("div", { class: "chips", role: "group", "aria-label": "신문사" },
+      chip("전체", editorials.length, ui.paper === "all", () => { ui.paper = "all"; viewEditorials(); }),
+      papers.map((p) => chip(p, editorials.filter((e) => e.source === p).length, ui.paper === p, () => { ui.paper = p; viewEditorials(); })),
+    ));
+    const rows = list.length
+      ? h("ul", { class: "panel row-list" }, list.map((e) => h("li", {},
+          h("a", { class: "row", href: `#/e/${encodeURIComponent(e.id)}` },
+            h("div", { class: "row-main" },
+              h("p", { class: "row-title" }, e.title),
+              h("p", { class: "row-sub" }, `${e.source} · ${topicLabel(e.topic)} · ${e.date.slice(5).replace("-", ".")}`),
+            ),
+            store.read[e.id] ? h("span", { class: "pill green" }, "읽음") : h("span", { class: "pill yellow" }, "안 읽음"),
+            h("span", { class: "row-score" }, e.topic === "trade" || e.topic === "economy" ? h("span", { class: "dot", title: "무역·경제 관련" }) : ""),
+          ))))
+      : h("p", { class: "panel empty" }, editorials.length ? "이 신문사의 사설이 없습니다." : "아직 모은 사설이 없어요. 다음 자동 수집 후에 표시돼요.");
+
+    render(
+      h("p", { class: "page-title" }, "신문 사설 — 주장과 근거를 정리해 읽어요"),
+      head, chips, rows,
+      h("p", { class: "meta note" }, "사설 원문은 신문사 사이트에서 볼 수 있어요. 여기에는 AI가 정리한 요약만 싣습니다."),
+    );
+  }
+
+  function viewEditorial(id) {
+    setNav("editorials");
+    const e = editorials.find((x) => x.id === id);
+    if (!e) {
+      render(h("p", { class: "empty" }, "사설을 찾을 수 없습니다. ", h("a", { href: "#/editorials" }, "목록으로")));
+      return;
+    }
+    const url = safeUrl(e.url);
+    const isRead = Boolean(store.read[e.id]);
+    const readBtn = h("button", {
+      class: isRead ? "secondary done-btn" : "primary",
+      onclick: () => {
+        if (store.read[e.id]) delete store.read[e.id];
+        else store.read[e.id] = new Date().toISOString();
+        saveStore(store);
+        viewEditorial(e.id);
+      },
+    }, isRead ? "✓ 읽음 (취소하려면 누르세요)" : "다 읽었어요");
+
+    render(
+      h("a", { class: "back", href: "#/editorials" }, "← 사설 목록"),
+      h("article", { class: "article" },
+        h("div", { class: "meta" },
+          h("span", { class: "pill" }, e.source),
+          h("span", {}, topicLabel(e.topic)),
+          h("span", {}, e.date),
+        ),
+        h("h1", {}, e.title),
+        h("p", { class: "lead" }, e.summary),
+        h("section", {},
+          h("h3", {}, "신문사의 주장"),
+          h("p", {}, e.claim),
+        ),
+        h("section", {},
+          h("h3", {}, "근거"),
+          h("ul", { class: "key-points" }, e.reasons.map((r) => h("li", {}, r))),
+        ),
+        e.counterpoints.length ? h("section", {},
+          h("h3", {}, "생각해 볼 점"),
+          h("div", { class: "concepts" }, e.counterpoints.map((c) => h("div", { class: "concept" }, h("p", {}, c)))),
+        ) : null,
+        e.terms.length ? h("section", {},
+          h("h3", {}, "알아둘 용어"),
+          h("div", { class: "concepts" }, e.terms.map((t) =>
+            h("div", { class: "concept plain" }, h("b", {}, t.term), h("p", {}, t.explanation)))),
+        ) : null,
+        e.trade_link ? h("section", {},
+          h("h3", {}, "무역·경제 공부와 연결"),
+          h("p", {}, e.trade_link),
+        ) : null,
+        url ? h("section", { class: "source-link" },
+          "원문 읽기: ", h("a", { href: url, target: "_blank", rel: "noopener noreferrer" }, `${e.source} — ${e.title}`)) : null,
+      ),
+      readBtn,
+    );
+  }
+
   // ---------- 라우팅 ----------
   function route() {
     const hash = location.hash || "#/";
     const m = hash.match(/^#\/a\/(.+)$/);
+    const em = hash.match(/^#\/e\/(.+)$/);
     if (m) viewArticle(decodeURIComponent(m[1]));
+    else if (em) viewEditorial(decodeURIComponent(em[1]));
+    else if (hash === "#/editorials") viewEditorials();
     else if (hash === "#/me") viewMe();
     else viewHome();
   }
 
-  fetch("data/articles.json", { cache: "no-cache" })
-    .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
-    .then((data) => {
-      articles = data.slice().sort((x, y) => (x.date < y.date ? 1 : x.date > y.date ? -1 : 0));
+  const byDateDesc = (x, y) => (x.date < y.date ? 1 : x.date > y.date ? -1 : 0);
+  // 사설 파일은 없거나 비어 있어도 기사 화면은 동작해야 한다.
+  const loadEditorials = fetch("data/editorials.json", { cache: "no-cache" })
+    .then((r) => (r.ok ? r.json() : []))
+    .catch(() => []);
+
+  Promise.all([
+    fetch("data/articles.json", { cache: "no-cache" }).then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); }),
+    loadEditorials,
+  ])
+    .then(([data, eds]) => {
+      articles = data.slice().sort(byDateDesc);
+      editorials = Array.isArray(eds) ? eds.slice().sort(byDateDesc) : [];
       window.addEventListener("hashchange", route);
       route();
     })

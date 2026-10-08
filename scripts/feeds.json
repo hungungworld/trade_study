@@ -1,7 +1,20 @@
-[
-  {"source": "연합뉴스", "url": "https://www.yna.co.kr/rss/economy.xml"},
-  {"source": "연합뉴스", "url": "https://www.yna.co.kr/rss/industry.xml"},
-  {"source": "한국경제", "url": "https://www.hankyung.com/feed/economy"},
-  {"source": "한국경제", "url": "https://www.hankyung.com/feed/industry"},
-  {"source": "정책브리핑(산업통상자원부)", "url": "https://www.korea.kr/rss/dept_motie.xml"}
-]
+{
+  "_설명": "news: 일반 기사 RSS / editorials: 사설이 섞인 오피니언 RSS (제목에 '사설'이 있는 글만 사용)",
+  "news": [
+    {"source": "매일경제", "url": "https://www.mk.co.kr/rss/30100041/"},
+    {"source": "매일경제", "url": "https://www.mk.co.kr/rss/50100032/"},
+    {"source": "한국경제", "url": "https://www.hankyung.com/feed/economy"},
+    {"source": "한국경제", "url": "https://www.hankyung.com/feed/international"},
+    {"source": "서울경제", "url": "https://www.sedaily.com/rss/economy"},
+    {"source": "동아일보", "url": "https://rss.donga.com/economy.xml"},
+    {"source": "한겨레", "url": "https://www.hani.co.kr/rss/economy/"},
+    {"source": "연합뉴스", "url": "https://www.yna.co.kr/rss/economy.xml"},
+    {"source": "연합뉴스", "url": "https://www.yna.co.kr/rss/industry.xml"},
+    {"source": "정책브리핑(산업통상자원부)", "url": "https://www.korea.kr/rss/dept_motie.xml"}
+  ],
+  "editorials": [
+    {"source": "한국경제", "url": "https://www.hankyung.com/feed/opinion"},
+    {"source": "경향신문", "url": "https://www.khan.co.kr/rss/rssdata/opinion_news.xml"},
+    {"source": "한겨레", "url": "https://www.hani.co.kr/rss/opinion/"}
+  ]
+}
