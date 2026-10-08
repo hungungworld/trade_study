@@ -1,4 +1,0 @@
-anthropic>=1.12,<2
-feedparser>=6.0
-requests>=2.31
-trafilatura>=1.12
