@@ -259,6 +259,7 @@ p { margin: 0; }
 .concept { background: var(--yellow-soft); border-radius: 6px; padding: 10px 12px; }
 .concept b { display: block; font-weight: 600; font-size: 0.86rem; margin-bottom: 2px; }
 .concept p { font-size: 0.85rem; }
+.concept.plain { background: var(--board); }
 .source-link { font-size: 0.8rem; color: var(--muted); }
 .source-link a { text-decoration: underline; text-underline-offset: 3px; }
 
@@ -282,6 +283,16 @@ p { margin: 0; }
   font-weight: 500;
   font-size: 0.85rem;
 }
+.done-btn {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 13px;
+  background: var(--green);
+  color: var(--green-text);
+  font-weight: 600;
+}
+.note { margin-top: 12px; }
 .button-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 .button-row .primary { width: auto; flex: 1; margin-top: 0; }
 .quiz .secondary { background: var(--board); }
