@@ -503,13 +503,37 @@
     .then((r) => (r.ok ? r.json() : []))
     .catch(() => []);
 
+  const loadMeta = fetch("data/meta.json", { cache: "no-cache" })
+    .then((r) => (r.ok ? r.json() : {}))
+    .catch(() => ({}));
+
+  // 하단 안내: 업데이트 일정과 마지막 업데이트 시각(한국 시간)
+  function showUpdateInfo(meta) {
+    const el = document.getElementById("update-info");
+    if (!el) return;
+    let last = "";
+    const at = meta && Date.parse(meta.updated_at);
+    if (at) {
+      last = new Intl.DateTimeFormat("ko-KR", {
+        timeZone: "Asia/Seoul", month: "long", day: "numeric", hour: "numeric", minute: "2-digit",
+      }).format(new Date(at));
+    } else if (articles[0]?.date) {
+      const [, m, d] = articles[0].date.split("-");
+      last = `${Number(m)}월 ${Number(d)}일`;
+    }
+    el.textContent = "기사와 사설은 매일 오전 7시, 오후 6시쯤 자동으로 업데이트돼요." +
+      (last ? ` 마지막 업데이트: ${last}` : "");
+  }
+
   Promise.all([
     fetch("data/articles.json", { cache: "no-cache" }).then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); }),
     loadEditorials,
+    loadMeta,
   ])
-    .then(([data, eds]) => {
+    .then(([data, eds, meta]) => {
       articles = data.slice().sort(byDateDesc);
       editorials = Array.isArray(eds) ? eds.slice().sort(byDateDesc) : [];
+      showUpdateInfo(meta);
       window.addEventListener("hashchange", route);
       route();
     })
