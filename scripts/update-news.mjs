@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// RSS에서 무역 관련 기사를 모아 GitHub Models(무료 AI)로 학습용 정리와 퀴즈 3문제를 만든다.
+// RSS에서 무역 관련 기사를 모아 Google Gemini API(무료 등급)로 학습용 정리와 퀴즈 3문제를 만든다.
 //
 // 결과는 data/articles.json 에 쌓이고, 이미 처리한 링크는 data/seen.json 에 기록한다.
 //
 // 환경 변수
-//   GITHUB_TOKEN      (필수) GitHub Actions 에서는 자동으로 주어진다. 로컬에서는 models 권한이 있는 토큰.
-//   AI_MODEL          사용할 모델 (기본 openai/gpt-4.1)
+//   GEMINI_API_KEY    (필수) Google AI Studio 에서 무료로 발급
+//   AI_MODEL          사용할 Gemini 모델 (기본 gemini-3.5-flash-lite)
 //   MAX_NEW_ARTICLES  한 번 실행에 새로 추가할 최대 기사 수 (기본 6)
 
 import { readFile, writeFile } from "node:fs/promises";
@@ -22,20 +22,23 @@ const ARTICLES_PATH = join(ROOT, "data", "articles.json");
 const SEEN_PATH = join(ROOT, "data", "seen.json");
 const FEEDS_PATH = join(SCRIPTS_DIR, "feeds.json");
 
-const API_URL = "https://models.github.ai/inference/chat/completions";
+// Gemini 의 OpenAI 호환 엔드포인트
+const API_BASE = "https://generativelanguage.googleapis.com/v1beta/openai";
+const API_KEY = process.env.GEMINI_API_KEY;
 // GitHub Actions 에서 변수를 비워 두면 빈 문자열이 들어오므로 `||` 로 기본값을 쓴다.
-const MODEL = process.env.AI_MODEL || "openai/gpt-4.1";
+const MODEL = process.env.AI_MODEL || "gemini-3.5-flash-lite";
 const MAX_NEW = Number(process.env.MAX_NEW_ARTICLES || 6);
 // 무관한 기사로 판정돼도 호출 횟수는 소모되므로, 한 번 실행의 호출 수를 제한한다.
 const MAX_API_CALLS = MAX_NEW * 3;
-// GitHub Models 무료 사용량은 분당 호출 수가 제한돼 있어 호출 사이에 쉰다.
+// 무료 등급은 분당 호출 수가 제한돼 있어 호출 사이에 쉰다.
 const CALL_INTERVAL_MS = 7000;
+// 연속으로 이만큼 API 오류가 나면 서비스·설정 문제로 보고 실행을 멈춘다.
+const MAX_CONSECUTIVE_ERRORS = 3;
 const MAX_KEEP = 300;
 const MAX_SEEN = 5000;
 const MIN_BODY_CHARS = 400;
-// 무료 사용량은 요청 하나의 입력 토큰 수도 제한돼 있다(약 8천). 시스템 프롬프트를 더해도
-// 넘지 않도록 본문을 자른다. 일반 기사는 대부분 이보다 짧다.
-const MAX_BODY_CHARS = 6000;
+// 본문 추출이 잘못돼 페이지 전체가 딸려오는 경우를 막기 위한 상한. 일반 기사는 이보다 훨씬 짧다.
+const MAX_BODY_CHARS = 15000;
 
 const UA = "Mozilla/5.0 (compatible; trade-study-bot/1.0; +https://github.com/hungungworld/trade_study)";
 
@@ -190,24 +193,75 @@ async function fetchBody(url) {
   return text.slice(0, MAX_BODY_CHARS);
 }
 
+// Gemini 는 JSON schema 의 additionalProperties 를 지원하지 않을 수 있어 빼고 보낸다.
+// 빠진 검사는 validate() 가 대신한다.
+function stripAdditionalProperties(schema) {
+  if (Array.isArray(schema)) return schema.map(stripAdditionalProperties);
+  if (schema && typeof schema === "object") {
+    const out = {};
+    for (const [k, v] of Object.entries(schema)) {
+      if (k !== "additionalProperties") out[k] = stripAdditionalProperties(v);
+    }
+    return out;
+  }
+  return schema;
+}
+const API_SCHEMA = stripAdditionalProperties(SCHEMA);
+
+const isStringArray = (v) => Array.isArray(v) && v.every((x) => typeof x === "string");
+
 function validate(result) {
+  if (typeof result.relevant !== "boolean") return "relevant 누락";
+  if (!result.relevant) return null;
+  if (!(result.industry in INDUSTRIES)) return `알 수 없는 산업 ${result.industry}`;
+  if (typeof result.title !== "string" || typeof result.lead !== "string") return "제목·요약 누락";
+  if (!isStringArray(result.body) || !isStringArray(result.key_points) || !isStringArray(result.countries)) {
+    return "본문·핵심 정리 형식 오류";
+  }
+  if (!Array.isArray(result.concepts) || !result.concepts.every((c) => typeof c?.term === "string" && typeof c?.explanation === "string")) {
+    return "개념 형식 오류";
+  }
+  if (!Array.isArray(result.quiz)) return "퀴즈 누락";
   if (result.quiz.length !== 3) return `퀴즈 수가 ${result.quiz.length}개`;
   for (const q of result.quiz) {
-    if (q.options.length !== 4) return "선택지가 4개가 아님";
-    if (!(q.answer_index >= 0 && q.answer_index < 4)) return "answer_index 범위 오류";
+    if (typeof q?.question !== "string" || typeof q.explanation !== "string") return "퀴즈 형식 오류";
+    if (!isStringArray(q.options) || q.options.length !== 4) return "선택지가 4개가 아님";
+    if (!Number.isInteger(q.answer_index) || q.answer_index < 0 || q.answer_index > 3) return "answer_index 범위 오류";
   }
   if (result.body.length < 2) return "본문 문단이 너무 적음";
   return null;
 }
 
+// 응답이 JSON 이 아니면(서비스 종료 안내 페이지 등) 본문 일부를 담아 오류로 만든다.
+async function readJson(res) {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`JSON 이 아닌 응답 (HTTP ${res.status}): ${text.slice(0, 200)}`);
+  }
+}
+
+// 설정한 모델이 실제로 있는지 먼저 확인한다. 없으면 쓸 수 있는 모델 이름을 보여 준다.
+async function checkModel() {
+  const res = await fetch(`${API_BASE}/models`, {
+    headers: { Authorization: `Bearer ${API_KEY}` },
+    signal: AbortSignal.timeout(30000),
+  });
+  if (!res.ok) throw new Error(`모델 목록 조회 실패 (HTTP ${res.status}): ${(await res.text()).slice(0, 300)}`);
+  const ids = ((await readJson(res)).data || []).map((m) => m.id.replace(/^models\//, ""));
+  if (!ids.includes(MODEL)) {
+    const flash = ids.filter((id) => id.includes("flash")).join(", ");
+    throw new Error(`모델 ${MODEL} 을(를) 찾을 수 없습니다. AI_MODEL 변수로 다음 중 하나를 지정하세요: ${flash}`);
+  }
+}
+
 async function callModel(messages) {
   for (let attempt = 0; ; attempt++) {
-    const res = await fetch(API_URL, {
+    const res = await fetch(`${API_BASE}/chat/completions`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
-        Accept: "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
+        Authorization: `Bearer ${API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -216,13 +270,13 @@ async function callModel(messages) {
         max_tokens: 4000,
         response_format: {
           type: "json_schema",
-          json_schema: { name: "trade_article", strict: true, schema: SCHEMA },
+          json_schema: { name: "trade_article", schema: API_SCHEMA },
         },
       }),
       signal: AbortSignal.timeout(120000),
     });
     if (res.status === 429) {
-      const wait = Number(res.headers.get("retry-after") || 60);
+      const wait = Number(res.headers.get("retry-after") || 30);
       // 오래 기다리라는 응답은 하루 사용량을 다 쓴 경우다. 다음 실행으로 넘긴다.
       if (attempt >= 2 || wait > 120) throw new DailyLimitError(`사용량 제한 (retry-after ${wait}s)`);
       log(`[대기] 분당 사용량 제한, ${wait}초 후 재시도`);
@@ -230,7 +284,7 @@ async function callModel(messages) {
       continue;
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`);
-    return res.json();
+    return readJson(res);
   }
 }
 
@@ -258,10 +312,11 @@ async function summarize(cand, body) {
 }
 
 async function main() {
-  if (!process.env.GITHUB_TOKEN) {
-    console.error("GITHUB_TOKEN 이 설정되지 않았습니다.");
+  if (!API_KEY) {
+    console.error("GEMINI_API_KEY 가 설정되지 않았습니다. README 의 '자동 수집' 설정을 확인하세요.");
     process.exit(1);
   }
+  await checkModel();
 
   const feeds = await loadJson(FEEDS_PATH, []);
   let articles = await loadJson(ARTICLES_PATH, []);
@@ -272,6 +327,7 @@ async function main() {
 
   const added = [];
   let calls = 0;
+  let consecutiveErrors = 0;
   for (const cand of candidates) {
     if (added.length >= MAX_NEW || calls >= MAX_API_CALLS) break;
     const body = await fetchBody(cand.url);
@@ -290,10 +346,17 @@ async function main() {
         log(`[중단] ${e.message}`);
         break;
       }
+      // API 쪽 문제일 수 있으므로 seen 에 넣지 않고 다음 실행에서 다시 시도한다.
       log(`[API 오류] ${cand.url}: ${e.message}`);
-      seen.push(cand.url);
+      consecutiveErrors += 1;
+      if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+        log(`[중단] API 오류가 ${consecutiveErrors}번 연속 발생`);
+        process.exitCode = 1;
+        break;
+      }
       continue;
     }
+    consecutiveErrors = 0;
     seen.push(cand.url);
     if (result === null) continue;
     if (!result.relevant) {

@@ -41,21 +41,23 @@ npx serve .
 
 ## 자동 수집 (무료)
 
-AI는 [GitHub Models](https://docs.github.com/ko/github-models)를 씁니다. GitHub 계정에 포함된 무료 사용량 안에서 동작하고, GitHub Actions에서는 자동으로 주어지는 `GITHUB_TOKEN`으로 호출하므로 **API 키를 따로 만들 필요가 없습니다.**
+AI는 [Google Gemini API](https://ai.google.dev/)의 무료 등급을 씁니다. 신용카드 없이 Google 계정만 있으면 됩니다.
 
-1. 이 브랜치를 main에 병합. GitHub Actions의 예약 실행은 기본 브랜치에서만 동작합니다.
-2. **Actions → 무역 뉴스 업데이트 → Run workflow**로 한 번 수동 실행해 로그를 확인
-3. (선택) **Settings → Secrets and variables → Actions → Variables**에서 설정
-   - `AI_MODEL`: 사용할 모델 (기본 `openai/gpt-4.1`)
+1. [Google AI Studio](https://aistudio.google.com/apikey)에서 **Create API key**로 키 발급
+2. 저장소 **Settings → Secrets and variables → Actions → Secrets → New repository secret**
+   - Name: `GEMINI_API_KEY`, Secret: 발급한 키
+3. **Actions → 무역 뉴스 업데이트 → Run workflow**로 한 번 실행해 로그 확인
+4. (선택) 같은 화면의 **Variables**에서 설정
+   - `AI_MODEL`: 사용할 Gemini 모델 (기본 `gemini-3.5-flash-lite`). 설정한 모델이 없으면 로그에 쓸 수 있는 모델 이름이 나옵니다.
    - `MAX_NEW_ARTICLES`: 한 번에 추가할 최대 기사 수 (기본 6)
 
-무료 사용량은 분당·하루 호출 수와 요청당 길이에 제한이 있습니다. 그래서 수집기는 호출 사이에 몇 초씩 쉬고, 기사 본문은 6,000자까지만 보내며, 하루 사용량을 다 쓰면 남은 기사를 다음 실행으로 넘깁니다.
+무료 등급은 분당·하루 호출 수에 제한이 있습니다(정확한 수치는 AI Studio에서 확인). 수집기는 호출 사이에 7초씩 쉬고, 한도에 걸리거나 API 오류가 3번 연속 나면 멈춘 뒤 남은 기사를 다음 실행에서 다시 시도합니다. 무료 등급에서는 보낸 내용이 Google 서비스 개선에 쓰일 수 있습니다(공개 뉴스 기사만 보냅니다).
 
-로컬에서 직접 실행하려면 GitHub에서 `models` 권한이 있는 개인 토큰(fine-grained PAT)을 만들어 사용합니다.
+로컬에서 직접 실행하려면:
 
 ```bash
 cd scripts && npm install
-GITHUB_TOKEN=... node update-news.mjs
+GEMINI_API_KEY=... node update-news.mjs
 ```
 
 ### 수집 대상 바꾸기

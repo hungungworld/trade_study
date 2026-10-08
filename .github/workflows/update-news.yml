@@ -9,7 +9,6 @@ on:
 
 permissions:
   contents: write
-  models: read
 
 concurrency:
   group: update-news
@@ -32,7 +31,7 @@ jobs:
 
       - name: 기사 수집 및 퀴즈 생성
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           AI_MODEL: ${{ vars.AI_MODEL }}
           MAX_NEW_ARTICLES: ${{ vars.MAX_NEW_ARTICLES }}
         run: node scripts/update-news.mjs
