@@ -1,7 +1,7 @@
 /* 색: 노랑 = 아직 안 한 것·진행 중, 초록 = 완료·정답 */
 :root {
-  --page: #f7f7f7;
-  --board: #ececec;
+  --page: #000000;
+  --board: rgba(236, 236, 236, 0.94);
   --surface: #ffffff;
   --text: #1a1a1a;
   --muted: #8a8a8a;
@@ -27,7 +27,7 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --page: #000000;
-    --board: #161616;
+    --board: rgba(22, 22, 22, 0.9);
     --surface: #222222;
     --text: #ececec;
     --muted: #919191;
@@ -51,7 +51,7 @@
 }
 :root[data-theme="dark"] {
   --page: #000000;
-  --board: #161616;
+  --board: rgba(22, 22, 22, 0.9);
   --surface: #222222;
   --text: #ececec;
   --muted: #919191;
@@ -90,8 +90,20 @@ a { color: inherit; }
 button { font: inherit; cursor: pointer; color: inherit; }
 p { margin: 0; }
 
+/* 배경 캔버스 */
+#flow {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
 /* 화면 전체를 감싸는 둥근 보드 */
 .board {
+  position: relative;
+  z-index: 1;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
   max-width: 760px;
   margin: 32px auto 0;
   padding: 28px 32px 32px;
@@ -113,10 +125,12 @@ p { margin: 0; }
 }
 .site-header nav a.active { color: var(--text); font-weight: 600; }
 .site-footer {
+  position: relative;
+  z-index: 1;
   max-width: 760px;
   margin: 0 auto;
   padding: 18px 32px 40px;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.55);
   font-size: 0.72rem;
 }
 
@@ -259,7 +273,7 @@ p { margin: 0; }
 .concept { background: var(--yellow-soft); border-radius: 6px; padding: 10px 12px; }
 .concept b { display: block; font-weight: 600; font-size: 0.86rem; margin-bottom: 2px; }
 .concept p { font-size: 0.85rem; }
-.concept.plain { background: var(--board); }
+.concept.plain { background: var(--track); }
 .source-link { font-size: 0.8rem; color: var(--muted); }
 .source-link a { text-decoration: underline; text-underline-offset: 3px; }
 
@@ -295,7 +309,7 @@ p { margin: 0; }
 .note { margin-top: 12px; }
 .button-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 .button-row .primary { width: auto; flex: 1; margin-top: 0; }
-.quiz .secondary { background: var(--board); }
+.quiz .secondary { background: var(--track); }
 
 /* 퀴즈 */
 .quiz { background: var(--surface); border-radius: var(--radius); padding: 22px; margin-top: 10px; }
@@ -342,11 +356,10 @@ p { margin: 0; }
 
 /* 휴대폰: 보드가 화면을 꽉 채우는 앱 형태 */
 @media (max-width: 560px) {
-  body { background: var(--board); }
   .board {
-    margin: 0;
-    padding: calc(18px + env(safe-area-inset-top)) 14px 20px;
-    border-radius: 0;
+    margin: calc(10px + env(safe-area-inset-top)) 8px 0;
+    padding: 18px 12px 20px;
+    border-radius: 16px;
   }
   .site-footer { padding: 4px 16px calc(28px + env(safe-area-inset-bottom)); }
   .tiles { gap: 6px; }
