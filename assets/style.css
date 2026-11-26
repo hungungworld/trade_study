@@ -208,6 +208,16 @@ p { margin: 0; }
 .goal-target span { color: var(--muted); font-size: 0.68rem; }
 .goal-target b { font-weight: 500; font-size: 0.95rem; }
 
+/* 오늘의 5개 */
+.today { margin-top: 10px; padding-bottom: 6px; }
+.today-head { display: flex; align-items: center; justify-content: space-between; }
+.today-head h2 { margin: 0; }
+.today-count { font-size: 1.1rem; }
+.today-count small { font-size: 0.65rem; color: var(--muted); margin-left: 1px; }
+.today .meta { margin: 2px 0 4px; }
+.row-list.flat { padding: 0; margin: 0; list-style: none; }
+.section-title { font-size: 0.88rem; font-weight: 600; margin: 22px 0 0; }
+
 /* 필터 */
 .filters { margin: 16px 0 8px; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }

@@ -17,7 +17,8 @@
 
   let articles = [];
   let editorials = [];
-  const ui = { industry: "all", status: "all", paper: "all" };
+  // period: 기본은 최근 7일만 보여 주고, 그 전 글은 '지난 기사/사설'로 따로 본다.
+  const ui = { industry: "all", status: "all", paper: "all", period: "recent", edPeriod: "recent" };
 
   // ---------- 저장소 (브라우저 localStorage) ----------
   function loadStore() {
@@ -91,6 +92,43 @@
 
   // ---------- 홈 ----------
   const GOAL_RATE = 80;
+  const RECENT_DAYS = 7;
+  const TODAY_COUNT = 5;
+
+  // 가장 최근 글 날짜부터 RECENT_DAYS 일 안쪽의 시작 날짜(YYYY-MM-DD). 수집이 멈춰도 기준이 흔들리지 않게
+  // 오늘 날짜가 아니라 데이터의 최신 날짜를 기준으로 한다.
+  function recentCutoff(items) {
+    if (!items.length) return "";
+    const d = new Date(`${items[0].date}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - (RECENT_DAYS - 1));
+    return d.toISOString().slice(0, 10);
+  }
+  const inPeriod = (item, cutoff, period) => (period === "recent" ? item.date >= cutoff : item.date < cutoff);
+
+  // 오늘의 5개: 최근 기사에서 산업별로 하나씩 번갈아 고른다(특정 산업 먼저, 무역 일반은 마지막).
+  // 풀이 여부와 상관없이 데이터만으로 정해져서, 푸는 동안 목록이 바뀌지 않는다.
+  function todayFive() {
+    const cutoff = recentCutoff(articles);
+    const groups = {};
+    for (const a of articles) {
+      if (a.date < cutoff) continue;
+      (groups[a.industry] ||= []).push(a);
+    }
+    const order = Object.keys(INDUSTRIES).filter((k) => k !== "general").concat("general");
+    const picks = [];
+    for (let round = 0; picks.length < TODAY_COUNT; round++) {
+      let added = false;
+      for (const key of order) {
+        const a = groups[key]?.[round];
+        if (a && picks.length < TODAY_COUNT) {
+          picks.push(a);
+          added = true;
+        }
+      }
+      if (!added) break;
+    }
+    return picks;
+  }
 
   function wrongCount() {
     let n = 0;
@@ -102,10 +140,10 @@
   }
 
   // 상단 바로가기 카드 3개. 점 색: 초록=할 일 있음/완료, 노랑=남은 퀴즈, 검정=복습
-  function tiles() {
-    const latest = articles[0]?.date;
-    const latestCount = articles.filter((a) => a.date === latest).length;
-    const todo = articles.filter((a) => !store.results[a.id]).length;
+  function tiles(five) {
+    const doneFive = five.filter((a) => store.results[a.id]).length;
+    const cutoff = recentCutoff(articles);
+    const todo = articles.filter((a) => a.date >= cutoff && !store.results[a.id]).length;
     const wrong = wrongCount();
     const tile = (label, value, dot, onclick) => h("button", { class: "tile", onclick },
       h("span", { class: `tile-dot ${dot}`, "aria-hidden": "true" }),
@@ -113,8 +151,10 @@
       h("b", { class: "tile-value" }, value),
     );
     return h("div", { class: "tiles" },
-      tile("최신 기사", `${latestCount}개`, "green", () => { ui.industry = "all"; ui.status = "all"; viewHome(); }),
-      tile("안 푼 퀴즈", `${todo}개`, todo ? "yellow" : "green", () => { ui.industry = "all"; ui.status = "todo"; viewHome(); }),
+      tile("오늘의 5개", `${doneFive}/${five.length}`, doneFive === five.length ? "green" : "yellow",
+        () => document.getElementById("today")?.scrollIntoView({ behavior: "smooth", block: "start" })),
+      tile(`안 푼 퀴즈 · ${RECENT_DAYS}일`, `${todo}개`, todo ? "yellow" : "green",
+        () => { ui.industry = "all"; ui.status = "todo"; ui.period = "recent"; viewHome(); }),
       tile("오답 노트", `${wrong}문제`, "black", () => { location.hash = "#/me"; }),
     );
   }
@@ -149,13 +189,36 @@
   }
 
   // ---------- 홈 ----------
+  function todayCard(five) {
+    const done = five.filter((a) => store.results[a.id]).length;
+    const all = five.length > 0 && done === five.length;
+    return h("section", { class: "panel today", id: "today" },
+      h("div", { class: "today-head" },
+        h("h2", {}, "오늘의 5개"),
+        all ? h("span", { class: "pill green" }, "오늘 목표 달성!")
+          : h("span", { class: "today-count" }, done, h("small", {}, `/${five.length}`)),
+      ),
+      h("p", { class: "meta" }, "최근 기사에서 산업별로 하나씩 골랐어요. 이것만 풀어도 충분해요."),
+      five.length ? h("ul", { class: "row-list flat" }, five.map((a) => h("li", {}, row(a))))
+        : h("p", { class: "empty" }, "아직 기사가 없어요."),
+    );
+  }
+
   function viewHome() {
     setNav("home");
+    const five = todayFive();
+    const cutoff = recentCutoff(articles);
+    const recentCount = articles.filter((a) => a.date >= cutoff).length;
+    const pool = articles.filter((a) => inPeriod(a, cutoff, ui.period));
 
+    const periodChips = h("div", { class: "chips", role: "group", "aria-label": "기간" },
+      chip(`최근 ${RECENT_DAYS}일`, recentCount, ui.period === "recent", () => { ui.period = "recent"; viewHome(); }),
+      chip("지난 기사", articles.length - recentCount, ui.period === "past", () => { ui.period = "past"; viewHome(); }),
+    );
     const counts = {};
-    articles.forEach((a) => { counts[a.industry] = (counts[a.industry] || 0) + 1; });
+    pool.forEach((a) => { counts[a.industry] = (counts[a.industry] || 0) + 1; });
     const industryChips = h("div", { class: "chips", role: "group", "aria-label": "산업" },
-      chip("전체", articles.length, ui.industry === "all", () => { ui.industry = "all"; viewHome(); }),
+      chip("전체", pool.length, ui.industry === "all", () => { ui.industry = "all"; viewHome(); }),
       Object.entries(INDUSTRIES)
         .filter(([key]) => counts[key])
         .map(([key, label]) => chip(label, counts[key], ui.industry === key, () => { ui.industry = key; viewHome(); })),
@@ -166,7 +229,7 @@
         chip(label, null, ui.status === key, () => { ui.status = key; viewHome(); }, dot)),
     );
 
-    const list = articles.filter((a) =>
+    const list = pool.filter((a) =>
       (ui.industry === "all" || a.industry === ui.industry) &&
       (ui.status === "all" || (ui.status === "done") === Boolean(store.results[a.id])));
 
@@ -175,9 +238,11 @@
       : h("p", { class: "panel empty" }, ui.status === "todo" ? "이 분야의 퀴즈는 다 풀었어요!" : "기사가 없습니다.");
 
     render(
-      tiles(),
+      tiles(five),
       ...summaryCards(),
-      h("div", { class: "filters" }, industryChips, statusChips),
+      todayCard(five),
+      h("h2", { class: "section-title" }, "기사 목록"),
+      h("div", { class: "filters" }, periodChips, industryChips, statusChips),
       rows,
     );
   }
@@ -397,18 +462,27 @@
   function viewEditorials() {
     setNav("editorials");
     const papers = [...new Set(editorials.map((e) => e.source))];
-    const unread = editorials.filter((e) => !store.read[e.id]).length;
-    const list = editorials.filter((e) => ui.paper === "all" || e.source === ui.paper);
+    const cutoff = recentCutoff(editorials);
+    const recent = editorials.filter((e) => e.date >= cutoff);
+    const unread = recent.filter((e) => !store.read[e.id]).length;
+    const pool = editorials.filter((e) => inPeriod(e, cutoff, ui.edPeriod));
+    const list = pool.filter((e) => ui.paper === "all" || e.source === ui.paper);
 
     const head = h("div", { class: "panel stat-row" },
       h("div", { class: "stat" }, h("b", {}, editorials.length, h("small", {}, "편")), h("span", {}, "모은 사설")),
-      h("div", { class: "stat" }, h("b", {}, unread, h("small", {}, "편")), h("span", {}, "안 읽은 사설")),
+      h("div", { class: "stat" }, h("b", {}, unread, h("small", {}, "편")), h("span", {}, `안 읽은 사설 · ${RECENT_DAYS}일`)),
       h("div", { class: "stat" }, h("b", {}, papers.length, h("small", {}, "곳")), h("span", {}, "신문사")),
     );
-    const chips = h("div", { class: "filters" }, h("div", { class: "chips", role: "group", "aria-label": "신문사" },
-      chip("전체", editorials.length, ui.paper === "all", () => { ui.paper = "all"; viewEditorials(); }),
-      papers.map((p) => chip(p, editorials.filter((e) => e.source === p).length, ui.paper === p, () => { ui.paper = p; viewEditorials(); })),
-    ));
+    const chips = h("div", { class: "filters" },
+      h("div", { class: "chips", role: "group", "aria-label": "기간" },
+        chip(`최근 ${RECENT_DAYS}일`, recent.length, ui.edPeriod === "recent", () => { ui.edPeriod = "recent"; viewEditorials(); }),
+        chip("지난 사설", editorials.length - recent.length, ui.edPeriod === "past", () => { ui.edPeriod = "past"; viewEditorials(); }),
+      ),
+      h("div", { class: "chips", role: "group", "aria-label": "신문사" },
+        chip("전체", pool.length, ui.paper === "all", () => { ui.paper = "all"; viewEditorials(); }),
+        papers.map((p) => chip(p, pool.filter((e) => e.source === p).length, ui.paper === p, () => { ui.paper = p; viewEditorials(); })),
+      ),
+    );
     const rows = list.length
       ? h("ul", { class: "panel row-list" }, list.map((e) => h("li", {},
           h("a", { class: "row", href: `#/e/${encodeURIComponent(e.id)}` },
