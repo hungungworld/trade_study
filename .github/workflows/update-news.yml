@@ -1,4 +1,4 @@
-name: 무역 뉴스 업데이트
+name: 산업 뉴스 업데이트
 
 on:
   schedule:

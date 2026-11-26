@@ -1,4 +1,4 @@
-# 무역 뉴스 퀴즈
+# 산업 뉴스 퀴즈
 
 산업별 무역 뉴스를 읽고, 기사 내용으로 만든 퀴즈 3문제를 풀며 공부하는 정적 웹사이트입니다.
 
@@ -48,7 +48,7 @@ AI는 [Google Gemini API](https://ai.google.dev/)의 무료 등급을 씁니다.
 1. [Google AI Studio](https://aistudio.google.com/apikey)에서 **Create API key**로 키 발급
 2. 저장소 **Settings → Secrets and variables → Actions → Secrets → New repository secret**
    - Name: `GEMINI_API_KEY`, Secret: 발급한 키
-3. **Actions → 무역 뉴스 업데이트 → Run workflow**로 한 번 실행해 로그 확인
+3. **Actions → 산업 뉴스 업데이트 → Run workflow**로 한 번 실행해 로그 확인
 4. (선택) 같은 화면의 **Variables**에서 설정
    - `AI_MODEL`: 사용할 Gemini 모델 (기본 `gemini-3.5-flash-lite`). 설정한 모델이 없으면 로그에 쓸 수 있는 모델 이름이 나옵니다.
    - `MAX_NEW_ARTICLES`: 한 번에 추가할 최대 기사 수 (기본 6)

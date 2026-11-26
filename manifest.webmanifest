@@ -1,6 +1,6 @@
 {
-  "name": "무역 뉴스 퀴즈",
-  "short_name": "무역퀴즈",
+  "name": "산업 뉴스 퀴즈",
+  "short_name": "산업퀴즈",
   "description": "산업별 무역 뉴스를 읽고 퀴즈 3문제로 확인하는 학습 사이트",
   "start_url": "/",
   "display": "standalone",
