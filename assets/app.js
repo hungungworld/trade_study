@@ -245,6 +245,8 @@
       h("div", { class: "filters" }, periodChips, industryChips, statusChips),
       rows,
     );
+    // 처음 방문한 사람에게 사용법 안내를 한 번 보여 준다.
+    window.TradeTour?.maybeAutoStart();
   }
 
   function chip(label, count, pressed, onclick, dot) {
