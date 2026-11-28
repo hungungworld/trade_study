@@ -5,53 +5,55 @@
 
   const DONE_KEY = "tradeQuiz.tourDone";
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  // 화면 높이의 이 비율보다 긴 요소는 윗부분만 비춘다.
+  const TALL = 0.55;
 
   // target: 비출 요소. 없으면(예: 기사가 아직 없음) 그 단계는 건너뛴다.
   const STEPS = [
     {
       target: null,
-      title: "산업 뉴스 퀴즈에 오신 걸 환영해요",
-      text: "매일 산업별 무역 뉴스를 읽고 퀴즈 3문제로 확인하는 곳이에요. 1분이면 사용법을 다 볼 수 있어요.",
+      title: "산업 뉴스 퀴즈 시작하기",
+      text: "산업별 무역 뉴스를 AI가 정리하고, 퀴즈 3문제로 이해도를 점검하는 학습 서비스입니다. 주요 기능을 1분 안에 안내해 드릴게요.",
     },
     {
       target: () => document.getElementById("today"),
       title: "오늘의 5개",
-      text: "최근 기사 중 산업별로 하나씩 골랐어요. 하루에 이것만 풀어도 충분해요. 다 풀면 '오늘 목표 달성!'이 떠요.",
+      text: "최근 기사 중 산업별로 1개씩, 하루 학습 분량 5개를 추천합니다. 5개를 모두 풀면 오늘의 목표가 완료됩니다.",
     },
     {
       target: () => document.querySelector("#today .row"),
       title: "기사 읽고 퀴즈 풀기",
-      text: "기사를 누르면 AI가 정리한 내용이 나와요. 다 읽고 '다 읽었어요'를 누르면 퀴즈 3문제가 시작돼요. 문제마다 바로 해설을 보여 줘요.",
+      text: "기사를 선택하면 핵심 내용과 관련 무역 개념이 정리되어 나옵니다. 끝까지 읽고 '다 읽었어요'를 누르면 퀴즈 3문제가 시작되며, 문제마다 해설을 확인할 수 있습니다.",
     },
     {
       target: () => document.querySelector(".tiles"),
       title: "바로가기",
-      text: "오늘의 진행도, 최근 7일 동안 안 푼 퀴즈, 틀린 문제를 모은 오답 노트로 바로 갈 수 있어요. 노란 점은 남은 일, 초록 점은 완료예요.",
+      text: "오늘의 진행도, 최근 7일 동안 풀지 않은 퀴즈, 오답 노트로 바로 이동합니다. 노란 점은 남은 학습, 초록 점은 완료를 뜻합니다.",
     },
     {
       target: () => document.querySelector(".stat-row"),
-      title: "내 학습 현황",
-      text: "푼 기사 수, 정답률, 연속 학습일이에요. 아래 막대로 목표 정답률 80%까지 얼마나 남았는지 볼 수 있어요.",
+      title: "학습 현황",
+      text: "푼 기사 수, 정답률, 연속 학습일을 보여 줍니다. 아래 막대에서 목표 정답률 80%까지의 진행 상황을 확인하세요.",
     },
     {
       target: () => document.querySelector(".filters"),
       title: "기사 찾기",
-      text: "기본은 최근 7일 기사만 보여요. 지난 기사, 산업별, 풀기 전·완료로 골라 볼 수 있어요.",
+      text: "기본 목록은 최근 7일 기사입니다. 지난 기사, 산업, 풀이 상태별로 원하는 기사를 골라 볼 수 있습니다.",
     },
     {
       target: () => document.querySelector('[data-nav="editorials"]'),
       title: "사설",
-      text: "신문 사설을 주장, 근거, 생각해 볼 점으로 정리했어요. 시사 감각을 키울 때 좋아요.",
+      text: "주요 신문 사설을 주장, 근거, 쟁점으로 정리했습니다. 같은 이슈를 신문사마다 어떻게 보는지 비교해 보세요.",
     },
     {
       target: () => document.querySelector('[data-nav="me"]'),
       title: "내 기록",
-      text: "산업별 정답률과 오답 노트를 볼 수 있어요. 기록은 지금 쓰는 기기의 브라우저에만 저장돼요.",
+      text: "산업별 정답률과 틀린 문제를 모아 봅니다. 기록은 지금 사용하는 기기의 브라우저에 저장됩니다.",
     },
     {
       target: () => document.getElementById("tour-btn"),
-      title: "다시 보고 싶다면",
-      text: "이 버튼을 누르면 언제든 사용법을 다시 볼 수 있어요. 기사는 매일 오전 7시, 오후 6시쯤 새로 올라와요.",
+      title: "안내 다시 보기",
+      text: "이 버튼으로 언제든 안내를 다시 볼 수 있습니다. 새 기사는 매일 오전 7시와 오후 6시쯤 업데이트됩니다.",
     },
   ];
 
@@ -133,7 +135,9 @@
     tip.setAttribute("aria-label", step.title);
 
     if (current) {
-      current.scrollIntoView({ behavior: reduceMotion.matches ? "auto" : "smooth", block: "center" });
+      // 화면보다 긴 요소는 윗부분이 보이도록 위쪽에 맞춘다(아래에 설명 상자 자리를 남김).
+      const tall = current.getBoundingClientRect().height > window.innerHeight * TALL;
+      current.scrollIntoView({ behavior: reduceMotion.matches ? "auto" : "smooth", block: tall ? "start" : "center" });
     }
     place();
     // 부드러운 스크롤이 끝난 뒤 위치를 다시 맞춘다.
@@ -155,7 +159,7 @@
       prev.addEventListener("click", () => go(index - 1));
       nav.append(prev);
     }
-    const next = el("button", "tour-next", index === total - 1 ? "시작하기" : index === 0 ? "둘러보기" : "다음");
+    const next = el("button", "tour-next", index === total - 1 ? "학습 시작" : index === 0 ? "안내 시작" : "다음");
     next.type = "button";
     next.addEventListener("click", () => go(index + 1));
     nav.append(next);
@@ -192,6 +196,8 @@
       right: Math.min(vw - 4, r.right + pad),
       bottom: Math.min(vh - 4, r.bottom + pad),
     };
+    // 긴 요소는 윗부분만 비춰서, 설명 상자가 비춘 영역을 가리지 않고 그 아래에 놓이게 한다.
+    if (r.height > vh * TALL) box.bottom = Math.min(box.bottom, box.top + vh * 0.5);
     Object.assign(spot.style, {
       left: `${box.left}px`,
       top: `${box.top}px`,
